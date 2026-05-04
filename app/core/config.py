@@ -2,13 +2,13 @@ from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 import os
 
-load_dotenv
+load_dotenv()
 
 class Settings(BaseSettings):
-    google_api_key: str = os.getenv('GOOGLE_API_KEY')
+    google_api_key: str = os.getenv('GOOGLE_API_KEY') or ""
 
-    github_token: str = os.getenv('GITHUB_TOKEN')
-    github_webhook_secret: str = os.getenv('GITHUB_SECRET')
+    github_token: str = os.getenv('GITHUB_TOKEN') or ""
+    github_webhook_secret: str = os.getenv('GITHUB_SECRET') or ""
 
     redis_url: str = os.getenv("REDIS_URL") or "redis://localhost:6379/0"
 
@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 
 settings = Settings()

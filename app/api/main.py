@@ -3,7 +3,7 @@ import hmac
 
 from fastapi import FastAPI, Header, HTTPException, Request
 
-from api.tasks import review_pr
+from app.api.tasks import review_pr
 from app.core.config import settings
 
 

@@ -1,6 +1,6 @@
 from celery.exceptions import SoftTimeLimitExceeded
 
-from api.github_client import get_pr_diff, post_review
+from app.api.github_client import get_pr_diff, post_review
 from app.core.celery_config import celery_app
 from app.core.graph import pr_reviewer_graph
 

@@ -13,7 +13,7 @@ llm = ChatGoogleGenerativeAI(
     google_api_key=settings.google_api_key,
 )
 
-_prompt_text = (Path(__file__).parent.parent / "app" /"core" / "prompts" / "quality.md").read_text()
+_prompt_text = (Path(__file__).parent.parent.parent / "core" / "prompts" / "quality.md").read_text()
 
 prompt = ChatPromptTemplate.from_messages([
     ("system", _prompt_text),

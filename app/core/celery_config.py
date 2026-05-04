@@ -1,5 +1,5 @@
 from celery import Celery
-from config import settings
+from app.core.config import settings
 
 celery_app = Celery(
     "reviewer_ai",
@@ -14,7 +14,7 @@ celery_app.conf.update(
     timezone="UTC",
     task_track_started=True,
     task_routes={
-        "api.tasks.review_pr": {"queue": "reviews"},
+        "app.api.tasks.review_pr": {"queue": "reviews"},
     },
     task_queues={
         "reviews": {"exchange": "reviews", "routing_key": "reviews"},

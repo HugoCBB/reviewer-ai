@@ -15,5 +15,6 @@ class AgentState(TypedDict):
     title: str
     description: str
     findings: Annotated[list[Finding], operator.add]
-    next: str          
-    agents_done: list 
+    next: str
+    agents_done: list
+    summary: str

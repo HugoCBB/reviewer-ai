@@ -6,7 +6,7 @@ from app.modules.agents.quality_agent import quality_node
 from app.modules.agents.security_agent import security_node
 from app.modules.agents.orchestrator import orchestrator_node
 from app.modules.agents.tests_agent import tests_node
-from core.state import AgentState
+from app.core.state import AgentState
 
 SPECIALIST_AGENTS = ["security", "quality", "tests", "docs"]
 
@@ -26,7 +26,7 @@ def build_graph():
     workflow.set_entry_point("supervisor")
 
     workflow.add_conditional_edges(
-        "orchestrator",
+        "supervisor",
         lambda state: state["next"],
         {
             "security":   "security",
@@ -39,7 +39,7 @@ def build_graph():
     )
 
     for agent in SPECIALIST_AGENTS:
-        workflow.add_edge(agent, "orchestrator")
+        workflow.add_edge(agent, "supervisor")
 
     workflow.add_edge("aggregator", END)
 

@@ -1,7 +1,7 @@
 import httpx
 
 from app.core.config import settings
-from core.state import Finding
+from app.core.state import Finding
 
 GITHUB_API = "https://api.github.com"
 

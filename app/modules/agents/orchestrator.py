@@ -15,7 +15,7 @@ llm = ChatGoogleGenerativeAI(
 )
 
 # ── Prompt loaded from markdown ───────────────────────────────────────────────
-_prompt_text = (Path(__file__).parent.parent / "app" / "core" / "prompts" / "orchestrator.md").read_text()
+_prompt_text = (Path(__file__).parent.parent.parent / "core" / "prompts" / "orchestrator.md").read_text()
 
 prompt = ChatPromptTemplate.from_messages([
     ("system", _prompt_text),

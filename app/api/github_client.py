@@ -29,7 +29,7 @@ def post_review(repo: str, pr_number: int, findings: list[Finding], summary: str
     event = "REQUEST_CHANGES" if criticals else "COMMENT"
 
     findings_md = "\n\n".join(
-        f"**[{f['agent'].upper()} — {f['severity'].upper()}]** `{f['file']}` linha {f['line']}\n> {f['comment']}"
+        f"**[{f.get('agent','?').upper()} — {f.get('severity','?').upper()}]** `{f.get('file','?')}` linha {f.get('line','?')}\n> {f.get('comment') or f.get('description') or f.get('message', '')}"
         for f in findings
         if f.get("file")
     )

@@ -1,7 +1,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from app.core.review_store import _key, load_review, save_review
+from app.core.review_store import _key, _validate_finding, load_review, save_review
 from app.core.state import Finding
 
 _REPO = "org/repo"
@@ -14,6 +14,77 @@ _FINDING: Finding = Finding(
     line=10,
     comment="SQL injection",
 )
+
+
+class TestValidateFinding:
+    def test_valid_finding_passes_through(self):
+        raw = {"agent": "security", "severity": "high", "file": "app/main.py", "line": 10, "comment": "Issue"}
+        result = _validate_finding(raw)
+        assert result == Finding(agent="security", severity="high", file="app/main.py", line=10, comment="Issue")
+
+    def test_missing_agent_defaults_to_unknown(self):
+        raw = {"severity": "low", "file": "f.py", "line": 1, "comment": "x"}
+        assert _validate_finding(raw)["agent"] == "unknown"
+
+    def test_missing_severity_defaults_to_low(self):
+        raw = {"agent": "security", "file": "f.py", "line": 1, "comment": "x"}
+        assert _validate_finding(raw)["severity"] == "low"
+
+    def test_missing_file_defaults_to_unknown(self):
+        raw = {"agent": "security", "severity": "high", "line": 1, "comment": "x"}
+        assert _validate_finding(raw)["file"] == "unknown"
+
+    def test_missing_line_defaults_to_1(self):
+        raw = {"agent": "security", "severity": "high", "file": "f.py", "comment": "x"}
+        assert _validate_finding(raw)["line"] == 1
+
+    def test_none_line_defaults_to_1(self):
+        raw = {"agent": "security", "severity": "high", "file": "f.py", "line": None, "comment": "x"}
+        assert _validate_finding(raw)["line"] == 1
+
+    def test_string_line_is_cast_to_int(self):
+        raw = {"agent": "security", "severity": "high", "file": "f.py", "line": "42", "comment": "x"}
+        result = _validate_finding(raw)
+        assert result["line"] == 42
+        assert isinstance(result["line"], int)
+
+    def test_missing_comment_defaults_to_empty_string(self):
+        raw = {"agent": "security", "severity": "high", "file": "f.py", "line": 1}
+        assert _validate_finding(raw)["comment"] == ""
+
+    def test_extra_keys_are_ignored(self):
+        raw = {"agent": "security", "severity": "high", "file": "f.py", "line": 1, "comment": "x", "unknown_field": "val"}
+        result = _validate_finding(raw)
+        assert "unknown_field" not in result
+
+
+class TestLoadReviewValidation:
+    @patch("app.core.review_store._client")
+    def test_malformed_finding_gets_safe_defaults(self, mock_client_fn):
+        payload = json.dumps({
+            "findings": [{"agent": None, "severity": None, "file": None, "line": None, "comment": None}],
+            "summary": "Malformed",
+        })
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = payload
+        mock_client_fn.return_value = mock_redis
+
+        findings, summary = load_review("org/repo", 1)
+
+        assert len(findings) == 1
+        assert findings[0]["agent"] == "None"
+        assert findings[0]["line"] == 1
+
+    @patch("app.core.review_store._client")
+    def test_invalid_json_returns_empty(self, mock_client_fn):
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = "not valid json {"
+        mock_client_fn.return_value = mock_redis
+
+        findings, summary = load_review("org/repo", 1)
+
+        assert findings == []
+        assert summary == ""
 
 
 class TestRedisKey:

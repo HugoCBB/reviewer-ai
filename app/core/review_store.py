@@ -31,6 +31,21 @@ def _client() -> redis.Redis:
     return redis.Redis.from_url(settings.redis_url, decode_responses=True)
 
 
+def _validate_finding(raw: dict) -> Finding:
+    """Coerce a raw dict from Redis into a typed Finding with safe defaults.
+
+    TypedDict does not validate at runtime, so we explicitly cast each field
+    to prevent malformed Redis data from propagating into the agent graph.
+    """
+    return Finding(
+        agent=str(raw.get("agent", "unknown")),
+        severity=str(raw.get("severity", "low")),
+        file=str(raw.get("file", "unknown")),
+        line=int(raw.get("line") or 1),
+        comment=str(raw.get("comment", "")),
+    )
+
+
 def save_review(repo: str, pr_number: int, findings: list[Finding], summary: str) -> None:
     """Persist the review result so it can be loaded on the next push to this PR."""
     payload = {
@@ -54,7 +69,7 @@ def load_review(repo: str, pr_number: int) -> tuple[list[Finding], str]:
         if not raw:
             return [], ""
         data = json.loads(raw)
-        findings = [Finding(**f) for f in data.get("findings", [])]
+        findings = [_validate_finding(f) for f in data.get("findings", [])]
         return findings, data.get("summary", "")
     except Exception:
         logger.warning("review_store: failed to load review for %s#%s", repo, pr_number, exc_info=True)

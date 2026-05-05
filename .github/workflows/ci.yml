@@ -14,14 +14,15 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Unit tests mock all external calls (LLM, GitHub API, Redis) via
-      # respx and pytest-mock — no real credentials are ever used.
-      # If integration tests are added in the future, move real secrets to
-      # GitHub repository secrets and reference them with ${{ secrets.NAME }}.
-      GOOGLE_API_KEY: dummy-google-key
-      GITHUB_TOKEN: dummy-github-token
-      GITHUB_SECRET: test-webhook-secret
-      DEEPSEEK_API_KEY: dummy-deepseek-key
+      # API keys are read from repository secrets (Settings → Secrets → Actions).
+      # Unit tests mock all external calls via respx/pytest-mock, so any
+      # non-empty string works — set dummy values once in the repo settings.
+      # GITHUB_TOKEN is auto-provided by GitHub Actions and does not need a
+      # manual entry. REDIS_URL and LLM_PROVIDER are not sensitive.
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_SECRET: ${{ secrets.GITHUB_SECRET }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       REDIS_URL: redis://localhost:6379/0
       LLM_PROVIDER: gemini
 

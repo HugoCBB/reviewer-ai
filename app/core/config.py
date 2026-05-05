@@ -7,8 +7,8 @@ load_dotenv()
 class Settings(BaseSettings):
     google_api_key: str = os.getenv('GOOGLE_API_KEY') or ""
 
-    github_token: str = os.getenv('GITHUB_TOKEN') or ""
-    github_webhook_secret: str = os.getenv('GITHUB_SECRET') or ""
+    github_token: str = os.getenv('GITHUB_TOKEN') 
+    github_webhook_secret: str = os.getenv('GITHUB_SECRET') 
 
     redis_url: str = os.getenv("REDIS_URL") or "redis://localhost:6379/0"
 

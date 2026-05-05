@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint & Tests
+    runs-on: ubuntu-latest
+
+    env:
+      GOOGLE_API_KEY: test-google-key
+      GITHUB_TOKEN: test-github-token
+      GITHUB_SECRET: test-webhook-secret
+      LLM_PROVIDER: gemini
+      REDIS_URL: redis://localhost:6379/0
+      DEEPSEEK_API_KEY: test-deepseek-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check app/ tests/
+
+      - name: Run tests with coverage
+        run: pytest tests/ --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=60
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t reviewer-ai:ci .

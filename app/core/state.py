@@ -2,11 +2,11 @@ from typing import Annotated, TypedDict
 import operator
 
 class Finding(TypedDict):
-    agent: str       
-    severity: str     
-    file: str         
-    line: int         
-    comment: str      
+    agent: str
+    severity: str
+    file: str
+    line: int
+    comment: str
 
 class AgentState(TypedDict):
     pr_number: int
@@ -18,3 +18,6 @@ class AgentState(TypedDict):
     next: str
     agents_done: list
     summary: str
+    # Loaded from Redis before the graph runs; read-only during agent execution.
+    previous_findings: list[Finding]
+    previous_summary: str

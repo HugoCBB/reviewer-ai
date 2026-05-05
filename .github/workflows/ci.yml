@@ -1,0 +1,66 @@
+name: CI
+
+# Runs on pushes to main/feat branches and all pull requests targeting main.
+# Two jobs: lint+tests (fast feedback) and docker build (integration check).
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint & Tests
+    runs-on: ubuntu-latest
+
+    env:
+      # API keys are read from repository secrets (Settings → Secrets → Actions).
+      # Unit tests mock all external calls via respx/pytest-mock, so any
+      # non-empty string works — set dummy values once in the repo settings.
+      # GITHUB_TOKEN is auto-provided by GitHub Actions and does not need a
+      # manual entry. REDIS_URL and LLM_PROVIDER are not sensitive.
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_SECRET: ${{ secrets.GITHUB_SECRET }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      REDIS_URL: redis://localhost:6379/0
+      LLM_PROVIDER: gemini
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install runtime and dev dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      # Fail fast on import errors, unused imports, and style issues.
+      - name: Lint with ruff
+        run: ruff check app/ tests/
+
+      # Run the full test suite and enforce a minimum coverage floor.
+      - name: Run tests with coverage
+        run: pytest tests/ --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=70
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Verify the image builds cleanly; does not push to any registry.
+      - name: Build Docker image
+        run: docker build -t reviewer-ai:ci .

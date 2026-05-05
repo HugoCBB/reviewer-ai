@@ -3,6 +3,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 from app.api.github_client import get_pr_diff, post_review
 from app.core.celery_config import celery_app
 from app.core.graph import pr_reviewer_graph
+from app.core.review_store import load_review, save_review
 
 
 @celery_app.task(
@@ -30,20 +31,33 @@ def review_pr(self, pr_data: dict):
         # 1. fetch diff from GitHub
         diff = get_pr_diff(repo, pr_number)
 
-        # 2. run the multi-agent graph
+        # 2. load previous review for context comparison (non-fatal if Redis is down)
+        previous_findings, previous_summary = load_review(repo, pr_number)
+
+        # 3. run the multi-agent graph
         result = pr_reviewer_graph.invoke({
-            "pr_number":   pr_number,
-            "repo":        repo,
-            "diff":        diff,
-            "title":       pr_data["title"],
-            "description": pr_data.get("body") or "",
-            "findings":    [],
-            "agents_done": [],
-            "next":        "",
-            "summary":     "",
+            "pr_number":          pr_number,
+            "repo":               repo,
+            "diff":               diff,
+            "title":              pr_data["title"],
+            "description":        pr_data.get("body") or "",
+            "findings":           [],
+            "agents_done":        [],
+            "next":               "",
+            "summary":            "",
+            "previous_findings":  previous_findings,
+            "previous_summary":   previous_summary,
         })
 
-        # 3. post review to GitHub
+        # 4. persist this review so the next push can compare progress
+        save_review(
+            repo=repo,
+            pr_number=pr_number,
+            findings=result["findings"],
+            summary=result.get("summary", ""),
+        )
+
+        # 5. post review to GitHub
         post_review(
             repo=repo,
             pr_number=pr_number,

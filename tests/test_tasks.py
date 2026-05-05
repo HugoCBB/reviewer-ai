@@ -4,6 +4,7 @@ import pytest
 from celery.exceptions import SoftTimeLimitExceeded
 
 from app.api.tasks import review_pr
+from app.core.state import Finding
 
 _PR_DATA = {
     "repo": "org/repo",
@@ -17,11 +18,17 @@ _GRAPH_RESULT = {
     "summary": "No issues found.",
 }
 
+_PREVIOUS_FINDING = Finding(
+    agent="security", severity="high", file="app/main.py", line=1, comment="Old issue"
+)
+
 
 class TestReviewPrTask:
     def test_happy_path_calls_all_steps(self):
         with (
             patch("app.api.tasks.get_pr_diff", return_value="diff content") as mock_diff,
+            patch("app.api.tasks.load_review", return_value=([], "")),
+            patch("app.api.tasks.save_review") as mock_save,
             patch("app.api.tasks.pr_reviewer_graph") as mock_graph,
             patch("app.api.tasks.post_review") as mock_post,
         ):
@@ -30,16 +37,14 @@ class TestReviewPrTask:
 
         mock_diff.assert_called_once_with("org/repo", 42)
         mock_graph.invoke.assert_called_once()
-        mock_post.assert_called_once_with(
-            repo="org/repo",
-            pr_number=42,
-            findings=[],
-            summary="No issues found.",
-        )
+        mock_save.assert_called_once_with(repo="org/repo", pr_number=42, findings=[], summary="No issues found.")
+        mock_post.assert_called_once_with(repo="org/repo", pr_number=42, findings=[], summary="No issues found.")
 
     def test_graph_receives_correct_initial_state(self):
         with (
             patch("app.api.tasks.get_pr_diff", return_value="the diff"),
+            patch("app.api.tasks.load_review", return_value=([], "")),
+            patch("app.api.tasks.save_review"),
             patch("app.api.tasks.pr_reviewer_graph") as mock_graph,
             patch("app.api.tasks.post_review"),
         ):
@@ -54,11 +59,52 @@ class TestReviewPrTask:
         assert state["description"] == "PR description"
         assert state["findings"] == []
         assert state["agents_done"] == []
+        assert state["previous_findings"] == []
+        assert state["previous_summary"] == ""
+
+    def test_previous_review_passed_to_graph(self):
+        with (
+            patch("app.api.tasks.get_pr_diff", return_value="diff"),
+            patch("app.api.tasks.load_review", return_value=([_PREVIOUS_FINDING], "Old summary")),
+            patch("app.api.tasks.save_review"),
+            patch("app.api.tasks.pr_reviewer_graph") as mock_graph,
+            patch("app.api.tasks.post_review"),
+        ):
+            mock_graph.invoke.return_value = _GRAPH_RESULT
+            review_pr.run(_PR_DATA)
+
+        state = mock_graph.invoke.call_args[0][0]
+        assert state["previous_findings"] == [_PREVIOUS_FINDING]
+        assert state["previous_summary"] == "Old summary"
+
+    def test_save_review_called_with_graph_results(self):
+        graph_result = {
+            "findings": [_PREVIOUS_FINDING],
+            "summary": "One issue found.",
+        }
+        with (
+            patch("app.api.tasks.get_pr_diff", return_value="diff"),
+            patch("app.api.tasks.load_review", return_value=([], "")),
+            patch("app.api.tasks.save_review") as mock_save,
+            patch("app.api.tasks.pr_reviewer_graph") as mock_graph,
+            patch("app.api.tasks.post_review"),
+        ):
+            mock_graph.invoke.return_value = graph_result
+            review_pr.run(_PR_DATA)
+
+        mock_save.assert_called_once_with(
+            repo="org/repo",
+            pr_number=42,
+            findings=[_PREVIOUS_FINDING],
+            summary="One issue found.",
+        )
 
     def test_none_body_becomes_empty_description(self):
         pr_data = {**_PR_DATA, "body": None}
         with (
             patch("app.api.tasks.get_pr_diff", return_value="diff"),
+            patch("app.api.tasks.load_review", return_value=([], "")),
+            patch("app.api.tasks.save_review"),
             patch("app.api.tasks.pr_reviewer_graph") as mock_graph,
             patch("app.api.tasks.post_review"),
         ):
